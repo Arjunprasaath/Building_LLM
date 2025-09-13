@@ -11,20 +11,21 @@ from data import LMDataset
 # training or inference
 TRAINING_TOKENIZER = False
 TRAINING_MODEL = True
+INFERENCE_MODEL = False
 
 TOKENIZER_SAVE = "BPE_tokenizer_save"
-TOKENIZER_TRAIN_DATA = "/Users/arjunprasaath/Projects/building_llm/assignment1-basics/cs336_basics/data/dummy.txt"
-PRETOKENIZE_DATA = "/Users/arjunprasaath/Projects/building_llm/assignment1-basics/cs336_basics/data/dummy.txt"
-PRETOKENIZE_DATA_LOC = "converted.npy"
-FINAL_MODEL_SAVE = "final_model.pt"
+TOKENIZER_TRAIN_DATA = "Dataset/TinyStoriesV2-GPT4-valid.txt"
+PRETOKENIZE_DATA =  "Dataset/TinyStoriesV2-GPT4-train.txt"
+PRETOKENIZE_DATA_LOC_TRAIN = "Dataset/pretokenizerTinyStoriesV2-GPT4-train.npy"
+PRETOKENIZE_DATA_LOC_VALID = "Dataset/pretokenizerTinyStoriesV2-GPT4-valid.npy"
+FINAL_MODEL_SAVE = "final_model_train.pt"
 
 # Dataset hyperparameters
-batch_size = 64
-block_size = 4
+batch_size = 256
 
 # Define model hyperparameters
-vocab_size = 260
-context_length = 128
+vocab_size = 5000
+context_length = 512
 d_model = 512
 num_layers = 4
 num_heads = 8
@@ -34,8 +35,8 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'mps')
 
 # Define training hyperparameter
 num_epochs = 4
-warmup_steps = 100
-cosine_annealing_steps = 300
+warmup_steps = 1000
+cosine_annealing_steps = 3000
 max_lr = 5e-4
 min_lr = 1e-5
 global_step = 0
@@ -46,7 +47,9 @@ if TRAINING_TOKENIZER:
     tokenizer.save(TOKENIZER_SAVE)
     tokenizer.pretokenize_file(file_path=PRETOKENIZE_DATA, out_path=PRETOKENIZE_DATA_LOC)
 else:
+    print("Loading the tokenizer...")
     tokenizer = BPE.BPETokenizer.load(TOKENIZER_SAVE)
+
 
 print(f"Actual vocab size after training: {len(tokenizer.vocab)}")
 print(f"Max token ID in vocab: {max(tokenizer.vocab.values())}")
@@ -54,10 +57,10 @@ print(f"Special tokens: {tokenizer.special_tokens}")
 
 
 
-train_dataset = LMDataset.LMDataset(PRETOKENIZE_DATA_LOC, block_size=block_size) 
+train_dataset = LMDataset.LMDataset(PRETOKENIZE_DATA_LOC_TRAIN, block_size=context_length) 
 train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 
-val_dataset = LMDataset.LMDataset(PRETOKENIZE_DATA_LOC, block_size=block_size)
+val_dataset = LMDataset.LMDataset(PRETOKENIZE_DATA_LOC_VALID, block_size=context_length)
 val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=batch_size, shuffle=False) # No need to shuffle validation data
 
 model = LM.LanguageModel(
@@ -92,7 +95,7 @@ if TRAINING_MODEL:
             # cross entropy loss
             loss = cross_entropy(logits_flat, y_flat)
             epoch_loss += loss.item()
-            print(loss)
+            # print(loss)
 
             # backward pass
             optimizer.zero_grad()
@@ -146,7 +149,7 @@ if TRAINING_MODEL:
     torch.save(model.state_dict(), final_save_path)
     print(f"Final model saved to {final_save_path}")
 
-else:
+if INFERENCE_MODEL:
     final_load_path = FINAL_MODEL_SAVE
     model.load_state_dict(torch.load(final_load_path))
     model.eval()

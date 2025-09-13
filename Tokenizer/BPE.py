@@ -1,6 +1,7 @@
 # imports
 import os
 import json
+import math
 import pickle
 import numpy as np
 import regex as re
@@ -241,9 +242,14 @@ class BPETokenizer:
         """Pre-tokenize a large text file in streaming mode and save tokens as a memory mapped numpy file"""
         print("Counting tokens ...")
         
+        file_size = self._get_file_size(file_path)
+        est_chunks = math.ceil(file_size / self.chunk_size) if self.chunk_size > 0 else None
+
         total_tokens = 0
-        for chunk in self.read_in_chunks(file_path):
-            total_tokens += len(self.encode(chunk))
+        with tqdm(total=est_chunks, desc="Counting tokens", unit=" chunk") as pbar:
+            for chunk in self.read_in_chunks(file_path):
+                total_tokens += len(self.encode(chunk))
+                pbar.update(1)
         print(f"Total tokens: {total_tokens}")
 
         token_memmap = np.memmap(out_path, dtype=dtype, mode='w+', shape=(total_tokens, ))
@@ -251,10 +257,12 @@ class BPETokenizer:
         print("Writing tokens ...")
         
         offset = 0
-        for chunk in self.read_in_chunks(file_path):
-            ids = self.encode(chunk)
-            token_memmap[offset: offset + len(ids)] = np.array(ids, dtype=dtype)
-            offset += len(ids)
+        with tqdm(total=est_chunks, desc="Writing tokens", unit=" chunk") as pbar:
+            for chunk in self.read_in_chunks(file_path):
+                ids = self.encode(chunk)
+                token_memmap[offset: offset + len(ids)] = np.array(ids, dtype=dtype)
+                offset += len(ids)
+                pbar.update(1)
         token_memmap.flush()
         
         print(f"Saved pre-tokenized dataset to {out_path}")

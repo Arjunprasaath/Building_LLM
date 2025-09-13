@@ -16,6 +16,8 @@ checkpoints/*.pt
 *.model
 *.vocab.json
 *.npy
+*.log
+*.txt
 
 # Rough use file
 dummy.ipynb
